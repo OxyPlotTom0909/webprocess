@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 
 using WebProcess.CloudStorage;
 using static WebProcess.Helper.AESCryptography;
+using static WebProcess.Helper.HelperUtilities;
 using WebProcess.Models;
 
 namespace WebProcess
@@ -33,20 +34,46 @@ namespace WebProcess
             try
             {
                 var connectingString = Environment.GetEnvironmentVariable("AzureWebJobsStorage");
+                string resultString = "Error", resultMessage = "No Register";
 
-                var agentTable = await TableStorage<AgentInfoModel>.CreateTable(connectingString, "AgentInfo");
-                var agentInfo = agentTable.FindAsync(content["email"]).Result.FirstOrDefault();
+                /**
+                 * email:... (storage in blob)
+                 * user:... (agent = default, client = customize)
+                 **/
 
-                if (agentInfo != null)
+                if (content["user"] == "agent")
                 {
-                    var key = GetRandomString(16, false);
-                    var decryptMail = AESEncryptString(content["email"], key);
-                    var keyResult = decryptMail + key;
+                    var agentTable = await TableStorage<AgentInfoModel>.CreateTable(connectingString, "AgentInfo");
+                    var agentInfo = agentTable.FindAsync(content["email"]).Result.FirstOrDefault();
 
-                    list.Add(new JsonReplyDataModel { Result = "Success", ResultMessage = keyResult });
+                    if (agentInfo != null)
+                    {
+                        //var key = GetRandomString(16, false);
+                        //var decryptMail = AESEncryptString(content["email"], key);
+                        //var keyResult = decryptMail + key;
+
+                        //list.Add(new JsonReplyDataModel { Result = "Success", ResultMessage = keyResult });
+                        resultString = "Success";
+                        resultMessage = DecryptMail(agentInfo.AgentMail); 
+                    }
+                    //else
+                        //list.Add(new JsonReplyDataModel { Result = "Error", ResultMessage = "No Register" });
+
                 }
-                else
-                    list.Add(new JsonReplyDataModel { Result = "Error", ResultMessage = "No Register" });
+                else if (content["user"] == "client")
+                {
+                    var clientTable = await TableStorage<ClientInfoModel>.CreateTable(connectingString, "ClientInfo");
+                    var clientData = clientTable.FindAsync(content["email"]).Result.FirstOrDefault();
+
+                    if (clientData != null)
+                    {
+                        resultString = "Success";
+                        resultMessage = DecryptMail(clientData.ClientMail);
+                    }
+                }
+
+
+                list.Add(new JsonReplyDataModel { Result = resultString, ResultMessage = resultMessage });
             }
             catch (Exception ex)
             {
@@ -56,6 +83,15 @@ namespace WebProcess
             var result = JsonConvert.SerializeObject(list);
 
             return new OkObjectResult(result);
+        }
+
+        private static string DecryptMail(string email)
+        {
+            var key = GetRandomString(16, false);
+            var decryptMail = AESEncryptString(email, key);
+            var decryptResult = decryptMail + key;
+
+            return decryptResult;
         }
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -136,6 +137,21 @@ namespace WebProcess.Helper
             string result = Convert.ToBase64String(bytes);
 
             return result;
+        }
+
+        public static async Task<string> JsonTextFromUriFile(string path)
+        {
+            var req = WebRequest.Create(path);
+            var response = req.GetResponse();
+
+            Stream stream = response.GetResponseStream();
+            StreamReader file = new StreamReader(stream, System.Text.Encoding.UTF8);
+
+            var text = await file.ReadToEndAsync();
+
+            file.Close();
+
+            return text;
         }
 
         /// <summary>
